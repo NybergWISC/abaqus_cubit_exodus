@@ -4,9 +4,12 @@ import argparse
 from pathlib import Path
 
 parser = argparse.ArgumentParser(description='Input for Cubit conversion script.')
-parser.add_argument("abaqus_file", type=Path, help='Path to the Abaqus input file')
-parser.add_argument("-p", "--cubit_path", type=Path, help="Path to Cubit executable (required if PATH does not include Cubit)", required=False)
-parser.add_argument("-o", "--output", type=Path, help="Name/Location of the output file (Default is current/directory/exodus_out.exo)", required=False, default="exodus_out.exo")
+parser.add_argument("abaqus_file", type=Path,
+                    help='Path to the Abaqus input file')
+parser.add_argument("-p", "--cubit_path", type=Path, required=False,
+                    help="Path to Cubit executable (required if PATH does not include Cubit)")
+parser.add_argument("-o", "--output", type=Path, required=False, default="exodus_out.exo",
+                    help="Name/Location of the output file (Default is current/directory/exodus_out.exo)")
 parser.add_argument("-f", "--force", action='store_true', default=False,
                     help="If present, overwrite a pre-existing output files.")
 
@@ -63,14 +66,16 @@ split_key = '.SET-MATERIAL'
 
 group_ids = cubit.get_entities("group")
 for i, group in enumerate(group_ids):
-    tempName = cubit.get_entity_name("group", group)
+    group_name = cubit.get_entity_name("group", group)
     # skip the picked group if present
-    if tempName == 'picked':
+    if group_name == 'picked':
         continue
-    tempString = "block {} add group {}".format(i, group)
-    cubit.cmd(tempString)
-    blockName = "\"" + tempName.split(split_key)[0] + "_{}\"".format(i)
-    tempString = "block {} name {}".format(i,blockName)
-    cubit.cmd(tempString)
+    # add group to block
+    block_cmd = "block {} add group {}".format(i, group)
+    cubit.cmd(block_cmd)
+    # set the block name
+    block_name = "\"" + group_name.split(split_key)[0]
+    block_cmd = "block {} name {}".format(i, block_name)
+    cubit.cmd(block_cmd)
 
 cubit.cmd(output_cmd)
