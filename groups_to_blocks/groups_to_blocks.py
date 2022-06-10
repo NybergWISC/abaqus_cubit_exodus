@@ -1,81 +1,58 @@
 ### Command line version ###
-import sys
-import argparse
-from pathlib import Path
+import os
 
-parser = argparse.ArgumentParser(description='Input for Cubit conversion script.')
-parser.add_argument("abaqus_file", type=Path,
-                    help='Path to the Abaqus input file')
-parser.add_argument("-p", "--cubit_path", type=Path, required=False,
-                    help="Path to Cubit executable (required if PATH does not include Cubit)")
-parser.add_argument("-o", "--output", type=Path, required=False, default="exodus_out.exo",
-                    help="Name/Location of the output file (Default is current/directory/exodus_out.exo)")
-parser.add_argument("-f", "--force", action='store_true', default=False,
-                    help="If present, overwrite a pre-existing output files.")
+def convert_groups_to_blocks(input_file, output_file, overwrite=False):
+    ### Cubit portion of the code ###
+    import cubit
 
-# Should either add cubit to path beforehand or require input for the line below
-# IMP Could add try/catch
-# IMP could try to avoid importing sys
-args = parser.parse_args()
+    cubit.init([])
+    cubit.cmd("reset")
 
-# Makes sure cubit is importable
-if args.cubit_path is not None:
-    sys.path.append(str(args.cubit_path))
-
-# setup output command
-output_path = str(args.output)
-
-file_ext = str(args.output).split('.')[-1]
-
-if file_ext == ".cub":
-    output_cmd = 'save as "{}"'.format(output_path)
-elif file_ext in ('e', 'exo'):
-    output_cmd = 'export mesh "{}"'.format(output_path)
-else:
-    raise ValueError('Output extension "{}" not supported'.format(file_ext))
-
-# check for pre-existing output file
-if args.force:
-    output_cmd += ' overwrite'
-else:
-    if Path(output_path).exists:
+    if not overwrite and os.path.exists(output_file):
         msg = ('The output file "{}" already exists. Use "-f" '
-              'to overwrite output files.'.format(output_path))
+                'to overwrite output files.'.format(output_file))
         raise RuntimeError(msg)
 
-### Cubit portion of the code ###
-import cubit
+    # setup output patha n
+    file_ext = str(output_file).split('.')[-1]
 
-cubit.init([])
-cubit.cmd("reset")
+    if file_ext == ".cub":
+        output_cmd = 'save as "{}"'.format(output_file)
+    elif file_ext in ('e', 'exo'):
+        output_cmd = 'export mesh "{}"'.format(output_file)
+    else:
+        raise ValueError('Output extension "{}" not supported'.format(file_ext))
 
-# Need to specify geom path for this command
-cubit.cmd("import abaqus mesh geometry  \"{}\" feature_angle 135.00".format(args.abaqus_file))
+    if overwrite:
+        output_cmd += ' overwrite'
 
-cubit.cmd("merge vol all")
-cubit.cmd("block 1 remove vol all")
+    # Need to specify geom path for this command
+    cubit.cmd("import abaqus mesh geometry  \"{}\" feature_angle 135.00".format(input_file))
 
-# remove all pre-existing blocks
-block_ids = cubit.get_entities("block")
-for block in block_ids:
-    cubit.cmd("delete block {}".format(block))
+    cubit.cmd("merge vol all")
+    cubit.cmd("block 1 remove vol all")
 
-# This overwrites the default "picked" group which is probably cleaner and also
-# appends _<id> onto the end which avoids keywords
-split_key = '.SET-MATERIAL'
+    # remove all pre-existing blocks
+    block_ids = cubit.get_entities("block")
+    for block in block_ids:
+        cubit.cmd("delete block {}".format(block))
 
-group_ids = cubit.get_entities("group")
-for i, group in enumerate(group_ids):
-    group_name = cubit.get_entity_name("group", group)
-    # skip the picked group if present
-    if group_name == 'picked':
-        continue
-    # add group to block
-    block_cmd = "block {} add group {}".format(i, group)
-    cubit.cmd(block_cmd)
-    # set the block name
-    block_name = "\"" + group_name.split(split_key)[0]
-    block_cmd = "block {} name {}".format(i, block_name)
-    cubit.cmd(block_cmd)
+    # This overwrites the default "picked" group which is probably cleaner and also
+    # appends _<id> onto the end which avoids keywords
+    split_key = '.SET-MATERIAL'
 
-cubit.cmd(output_cmd)
+    group_ids = cubit.get_entities("group")
+    for i, group in enumerate(group_ids):
+        group_name = cubit.get_entity_name("group", group)
+        # skip the picked group if present
+        if group_name == 'picked':
+            continue
+        # add group to block
+        block_cmd = "block {} add group {}".format(i, group)
+        cubit.cmd(block_cmd)
+        # set the block name
+        block_name = "\"" + group_name.split(split_key)[0]
+        block_cmd = "block {} name {}".format(i, block_name)
+        cubit.cmd(block_cmd)
+
+    cubit.cmd(output_cmd)
