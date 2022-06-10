@@ -6,7 +6,7 @@ kwargs = {
     'packages': ['groups_to_blocks'],
     'entry_points': {
         'console_scripts': [
-            'groups_to_blocks=groups_to_blocks.__main__:main'
+            'groups-to-blocks=groups_to_blocks.__main__:main'
         ]
     },
 
